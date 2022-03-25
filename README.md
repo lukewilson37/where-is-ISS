@@ -4,7 +4,7 @@
 
 ### Description
 
-This project aims to produce a containerized flask application that can be used to orgonize and gather public data on the location of ISS. The project utilizes Flask and Docker with their various dependencies to create such an application. 
+This project aims to produce a containerized flask application that can be used to organize and gather public data on the location of ISS. The project utilizes Flask and Docker with their various dependencies to create such an application. 
 
 The source code for the project can be pulled with:
 ```bash
