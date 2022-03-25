@@ -1,0 +1,16 @@
+FROM centos:7.9.2009
+
+RUN yum update -y
+RUN yum install -y python3
+RUN yum update python-pip
+
+
+RUN pip3 install --user pytest==7.0.0
+RUN pip3 install --user requests
+RUN pip3 install --user flask
+RUN pip3 install --user xmltodict
+
+COPY app.py /code/app.py
+
+RUN chmod +rx /code/app.py
+
