@@ -1,5 +1,5 @@
 from flask import Flask
-from flask import jsonify
+#from flask import jsonify
 import xmltodict
 import requests
 import json
@@ -15,6 +15,53 @@ global epochs
 epochs = {}
 global sightings
 sightings = {}
+
+def read_data():
+	with open('XMLsightingData_citiesINT05.xml', 'r') as f:
+		SD = xmltodict.parse(f.read())
+
+	with open('ISS.OEM_J2K_EPH.xml', 'r') as f:	
+		PDF = xmltodict.parse(f.read())
+	logging.info('SD and PDF variables declared')
+
+	# we orgonize the sightings data into a embedded dictionary for data retreival purposes
+	for sight in SD['visible_passes']['visible_pass']:
+		country = sight['country']
+		region = sight['region']
+		city = sight['city']
+		if country not in sightings:
+			sightings[country] = {}
+		if region not in sightings[country]:
+			sightings[country][region] = {}
+		if city not in sightings[country][region]:
+			sightings[country][region][city] = []
+			sightings[country][region][city].append(sight)
+	
+	if len(sightings) == 0:
+		logging.error('Sightings Data not retreived properly')
+	else:
+		logging.info('Sightings retreived')	
+
+	# store epochs data so parsing becomes much easier
+	epochs_raw = PDF['ndm']['oem']['body']['segment']['data']['stateVector']   
+	for index in range(len(epochs_raw)):
+		epoch_id = epochs_raw[index]['EPOCH']
+		epochs[epoch_id] = epochs_raw[index]
+	# check if epochs is empty
+	if len(epochs) == 0:
+		logging.error('Public Distribution Data not retreived properly')
+	else:
+		logging.info('Public Distribution retreived')
+
+def return_epochs():
+	return epochs
+
+def return_sightings():
+	return sightings	
+		
+@app.route('/',methods=['GET'])
+def hello_world():
+	return 'hello, world\n'
 
 @app.route('/init',methods=['POST'])
 def initialize_data():
@@ -74,11 +121,11 @@ def return_epoch_ids():
 		No Arguments
 
 	Returns:
-		list of epoch ids (strings): ids seperated by return
+		epoch_ids (dict): dictionary with one key pair. 'epoch_ids' pairs to the list of epoch_ids (strings)
 	"""
-	epoch_ids = ''
+	epoch_ids = {'epoch_ids':[]}
 	for epoch_id in list(epochs.keys()):
-		epoch_ids = epoch_ids + epoch_id + '\n'
+		epoch_ids['epoch_ids'].append(epoch_id)
 	logging.info('epoch ids viewed')
 	return epoch_ids
 
@@ -88,12 +135,13 @@ def return_epoch_info(epoch_id):
 	This function returns all the information regarding a given epoch_id
 
 	Args:
-		epoch_id (strings): epoch identification 
+		epoch_id (dict): epoch identification 
 	
 	Returns:
 		epoch_info (json): jsoninified dictionary of epoch info
 	"""
-	epoch_info = jsonify(json.dumps(epochs[epoch_id]))
+	#epoch_info = jsonify(json.dumps(epochs[epoch_id]))
+	epoch_info = epochs[epoch_id]
 	logging.info('epoch ' + epoch_id + ' viewed')
 	return epoch_info
 
@@ -106,11 +154,11 @@ def return_countries():
 		No Arguments
 
 	Returns:
-		list of countries (strings): counties seperated by return
+		list of countries (dict): dictionary with one key pair. 'countries' pairs to the list of countries (strings)
 	"""
-	output = ''
+	output = {'countries':[]}
 	for country in list(sightings.keys()):
-		output = output + country + '\n'
+		output['countries'].append(country)
 	logging.info('list of countries viewed')
 	return output
 
@@ -124,13 +172,13 @@ def return_country_info(country):
 		country name (string): name of requested country
 
 	Returns:
-		country info (json): jsonified dictionary of all sightings in the desired country
+		country info (dict): dictionary of all sightings in the desired country
 	"""
 	country_info = {country:[]}
 	for region in list(sightings[country].keys()):
 		for city in list(sightings[country][region].keys()):
 			country_info[country].extend(sightings[country][region][city])
-	country_info = jsonify(json.dumps(country_info))
+	#country_info = jsonify(json.dumps(country_info))
 	logging.info(country + ' info viewed')
 	return country_info
 
@@ -143,12 +191,12 @@ def return_regions(country):
 		country (string): country name
 
 	Returns:
-		output (string): strings of regions seperated by a return
+		output (dict): dictionary with one key pair. 'regions' pairs to the list of regions (strings)
 	"""
-	output = ''
+	output = {'regions':[]}
 	for region in list(sightings[country].keys()):
-		output = output + region + '\n'
-	logging.info('list of ' + country + ' regions viewed')
+		output['regions'].append(region)
+	logging.info('regions of '+ country + ' viewed')
 	return output
 
 @app.route('/<country>/<region>',methods=['GET'])
@@ -162,13 +210,14 @@ def return_region_info(country,region):
 		region (string): region name
 
 	Returns:
-		region_info (json): jsonified dictionary
+		region_info (dict): dictionary of all sightings in desired region
 	"""
 	region_info = {region:[]}
 	for city in list(sightings[country][region].keys()):
 		region_info[region].extend(sightings[country][region][city])
 	logging.info(region + ' region of ' + country + ' info viewed')
-	return jsonify(json.dumps(region_info))
+	#return jsonify(json.dumps(region_info))
+	return region_info
 
 @app.route('/<country>/<region>/cities',methods=['GET'])
 def return_cities(country,region):
@@ -180,11 +229,11 @@ def return_cities(country,region):
 		region (string): region name
 
 	Returns:
-		city_list (string): string of cities seperated by return
+		city_list (dict): dictionary with one key pair. 'cities' pairs to the list of cities (strings)
 	"""
-	city_list = ''
+	city_list = {'cities':[]}
 	for city in list(sightings[country][region].keys()):
-		city_list = city_list + city + '\n'
+		city_list['cities'].append(city)
 	logging.info('list of cities in ' + region + ', ' + country + ' viewed')
 	return city_list
 
@@ -199,13 +248,14 @@ def return_city_info(country,region,city):
 		city (string): city name
 
 	Returns:
-		city_info (json): jsonified dictionary of city sightings		
+		city_info (dict): dictionary of all sightings in desired city	
 	"""
 	city_info = {city:[]}     
 	city_info[city].extend(sightings[country][region][city])
-	city_info =  jsonify(json.dumps(city_info))
+	#city_info =  jsonify(json.dumps(city_info))
 	logging.info(city + ', ' + country + ' info viewed')
 	return city_info
 
 if __name__ == '__main__':
+	read_data()
 	app.run(debug=True, host='0.0.0.0')
